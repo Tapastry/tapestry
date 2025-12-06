@@ -1,31 +1,135 @@
 # Tapestry
 
-Visualize the woven realities of your life to plan for the future.
+Simulate your life and generate branching future possibilities. Tapestry pairs an AI interview with a 3D life-graph so you can explore next steps before you take them.
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+<img src="public/tapestry.png" alt="Tapestry" width="80%">
 
-## What's next? How do I make an app with this?
+---
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+## Overview
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+- Interactive life simulator: speak or type with an agent, then see possible futures visualized as a branching graph.
+- Full-stack: Next.js 15/React 19 frontend + FastAPI backend with streaming agents.
+- Data-backed: PostgreSQL via Drizzle on the frontend and psycopg2 on the backend keeps nodes and links consistent.
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+---
 
-## Learn More
+## Principles
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+1. **Future-first** – Every action should reveal multiple plausible futures, not a single line.
+2. **Context-rich** – Personal background captured in the interview steers all generations.
+3. **Human-in-the-loop** – You can prune, extend, or rerun paths instead of accepting a fixed plan.
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+---
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+## Architecture
 
-## How do I deploy this?
+### Frontend (Next.js)
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+- Next.js 15 + React 19 with Tailwind CSS 4.
+- NextAuth Google OAuth for sign-in; guards redirect to interview or life view.
+- 3D visualization with `react-force-graph-3d`/Three.js for nodes, links, and “Now” anchoring.
+- Optional speech-to-text for the interview; SSE client for live agent responses.
+
+### Backend (FastAPI + ADK agents)
+
+- FastAPI service (`backend/main.py`) streaming via SSE and receiving messages via HTTP.
+- Agent stack (ADK) orchestrates interviewer, node maker, and reviewer to grow paths.
+- Relational storage with PostgreSQL (`DATABASE_URL`) using psycopg2; shared with frontend.
+- CORS open to `http://localhost:3000` for local dev.
+
+### Data & Graph
+
+- Nodes/links persisted in Postgres; “Now” is fixed, future nodes branch with time offsets.
+- Drizzle schema and migration helpers on the frontend (`pnpm db:generate|push|migrate`).
+- Life graph UI lets you click to expand futures, delete, or inspect nodes.
+
+### Flow
+
+1. Sign in with Google.
+2. Complete the AI-led interview (text or voice) to capture background/goals.
+3. Backend agents generate branching nodes; frontend renders and lets you extend or prune paths.
+
+---
+
+## Setup
+
+**Requirements**
+
+- Node.js 20+
+- pnpm 10.14+
+- Python 3.10+ (backend) and virtualenv
+- PostgreSQL (local or Docker)
+- Google API key for the agent (Gemini) and Google OAuth credentials for NextAuth
+
+**1) Frontend env** (`.env` in project root)
+
+```
+AUTH_SECRET=your_session_secret
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/tapestry
+NEXTAUTH_URL=http://localhost:3000
+BACKEND_URL=http://localhost:8000
+```
+
+**2) Backend env** (`.env` in project root, used by `backend/main.py`)
+
+```
+GOOGLE_API_KEY=your_gemini_api_key
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/tapestry
+```
+
+**3) Install deps**
+
+```bash
+pnpm install
+python3 -m venv backend/venv
+source backend/venv/bin/activate
+pip install -r backend/requirements.txt
+```
+
+**4) Start Postgres**
+
+```bash
+./start-database.sh           # uses DATABASE_URL
+# or: docker-compose up -d    # uses docker-compose.yml
+```
+
+**5) Run backend**
+
+```bash
+source backend/venv/bin/activate
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**6) Run frontend**
+
+```bash
+pnpm dev
+```
+
+Visit `http://localhost:3000`.
+
+**One-shot (docker/runtime helper)**
+
+```bash
+./start-services.sh
+```
+
+---
+
+## Useful scripts
+
+- `pnpm db:generate | db:push | db:migrate` – manage Drizzle migrations.
+- `pnpm lint`, `pnpm check`, `pnpm format:write` – quality passes.
+- `curl -H "Content-Type: application/json" http://localhost:8000/adk/events/123` – quick SSE sanity check.
+
+---
+
+## What you get
+
+- AI-assisted interview that adapts to your background.
+- Branching life graph with editable paths to explore multiple futures.
+- Local-first, container-friendly stack for fast experimentation and deployment.
+
